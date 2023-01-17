@@ -10,8 +10,7 @@
   },
   "dependencies": {
     "lodash": "^4.17.21",
-    "vue": "^3.2.41",
-    "vue3-drr-grid-layout": "^1.9.6"
+    "vue": "^3.2.41"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^3.2.0",
