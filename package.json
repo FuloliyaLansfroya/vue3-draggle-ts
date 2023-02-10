@@ -10,7 +10,10 @@
   },
   "dependencies": {
     "lodash": "^4.17.21",
-    "vue": "^3.2.41"
+    "vue": "^3.2.41",
+    "xterm": "^5.1.0",
+    "xterm-addon-attach": "^0.8.0",
+    "xterm-addon-fit": "^0.7.0"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^3.2.0",

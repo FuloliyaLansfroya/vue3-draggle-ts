@@ -1,3 +1,6 @@
+export const defaultBackground =
+  'linear-gradient(0deg, #f3f1f0 10%, transparent 10%, transparent 91%, #f3f1f0 91%, #f3f1f0),linear-gradient(90deg, #f3f1f0 10%, transparent 10%, transparent 91%, #f3f1f0 91%, #f3f1f0),linear-gradient(0deg, transparent 10%, #b4b4b4 10%, #b4b4b4 11%, transparent 11%, transparent 90%, #b4b4b4 90%, #b4b4b4 91%, transparent 91%, transparent),linear-gradient(90deg, transparent 10%, #b4b4b4 10%, #b4b4b4 11%, transparent 11%, transparent 90%, #b4b4b4 90%, #b4b4b4 91%, transparent 91%, transparent)'
+export const defaultBackgroundColor = '#f3f1f0'
 /**
  * uid
  * @returns uid
@@ -257,4 +260,28 @@ export const judgeCube = (logCube: any, level: number, topX: number, leftY: numb
     return [true]
   }
   return [false]
+}
+/**
+ * 获得当前可拖拽区域的高度
+ * @param logCube 用来记录元素被放置到的位置的合集，用来进行拖拽判定等
+ * @param contentHeight 可拖拽区域的高度，需要随着元素的增多来动态变化
+ * @param unitLength 单位长度
+ * @returns 当前可拖拽区域的高度
+ */
+export const changeHeight = (logCube: any, contentHeight: string, unitLength: number) => {
+  let maxCount = 0
+  for (let i = logCube.length - 1; i >= 0; i--) {
+    if (logCube[i]) {
+      for (let j = logCube[i].length; j >= 0; j--) {
+        if (logCube[i][j] && logCube[i][j].value === 1 && logCube[i][j].label) {
+          maxCount = i
+          break
+        }
+      }
+      if (maxCount) {
+        break
+      }
+    }
+  }
+  return `${Math.max((maxCount + 1) * unitLength, Number(contentHeight.replace('px', '')))}px`
 }

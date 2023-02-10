@@ -1,5 +1,5 @@
 <template>
-  <div class="root" @mousemove="allowDrop">
+  <div class="draggle-root" @mousemove="allowDrop">
     <div ref="containerRef" class="content bg-cube">
       <div v-for="(item, index) in cardList" :key="item.id" :id="item.id" class="drag" @mousedown="drag($event, item.id, item.type)">
         <slot name="content" :type="item.type">
@@ -12,15 +12,23 @@
   </div>
 </template>
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
-import { getTopAndLeft, guid, resetFun, setFun, judgeCube } from './utils'
+import { onMounted, ref, watch, computed } from 'vue'
+import { getTopAndLeft, guid, resetFun, setFun, judgeCube, defaultBackground, defaultBackgroundColor, changeHeight } from './utils'
 import _ from 'lodash'
 type Props = {
+  useDrag?: boolean
   unitLength?: number
   logCube: Array<{ id: string; type: string; [propName: string]: any }>
+  useGrid?: boolean
+  background?: string | null
+  minHeight?: number
 }
 const props = withDefaults(defineProps<Props>(), {
+  useDrag: true,
   logCube: () => [],
+  useGrid: true,
+  background: null,
+  minHeight: 1296,
 })
 const containerRef = ref() // 拖拽区域DOM
 const pointerStartX = ref(0) // 开始拖拽时的X坐标，用于计算left
@@ -34,11 +42,13 @@ const height = ref('') // 卡片高度
 const beforePointer = ref(0) // 拖拽进入时的鼠标X坐标，用于计算被拖拽元素进入目标的方向（left or right）
 const draggleDirection = ref('') // 拖拽方向（left or right） 主要用于判断目标的数量和位置
 let logCube: any = [] // 用来记录元素被放置到的位置的合集，用来进行拖拽判定等
+const background = computed(() => props.background || (props.useGrid ? defaultBackground : defaultBackgroundColor)) // 拖拽区域背景
+const contentHeight = ref(`${props.minHeight}px`) // 可拖拽区域的高度，需要随着元素的增多来动态变化
 watch(
   () => props.logCube,
   (value) => {
     logCube = value
-    init()
+    draggleInit()
   }
 )
 watch(
@@ -49,16 +59,20 @@ watch(
 )
 onMounted(() => {
   resize()
-  window.addEventListener('mouseup', drop)
   window.addEventListener('resize', resize)
+  if (props.useDrag) {
+    window.addEventListener('mouseup', drop)
+  }
 })
 const resize = () => {
   unitLength.value = props.unitLength || Math.floor(containerRef.value.clientWidth / 8)
   const size = `${unitLength.value}px`
-  width.value = `${unitLength.value - 10}px`
-  height.value = `${unitLength.value - 10}px`
-  containerRef.value.style.backgroundSize = `${size} ${size}, ${size} ${size}, ${size} ${size}, ${size} ${size}`
-  init()
+  width.value = `${unitLength.value}px`
+  height.value = `${unitLength.value}px`
+  if (props.useGrid) {
+    containerRef.value.style.backgroundSize = `${size} ${size}, ${size} ${size}, ${size} ${size}, ${size} ${size}`
+  }
+  draggleInit()
 }
 /** 格式化 */
 const uninit = () => {
@@ -67,7 +81,7 @@ const uninit = () => {
   draggleDirection.value = ''
 }
 /** 初始化 */
-const init = () => {
+const draggleInit = () => {
   cardList.value = []
   logCube.forEach((val: any, y: number) => {
     val &&
@@ -97,6 +111,7 @@ const init = () => {
               col.style.top = `${y * unitLength.value}px`
               col.style.left = `${x * unitLength.value}px`
             }
+            contentHeight.value = changeHeight(logCube, contentHeight.value, unitLength.value)
           })
         }
       })
@@ -105,20 +120,22 @@ const init = () => {
 
 /** 开始拖拽 */
 const drag = (e: any, id: any, type: string) => {
-  e.preventDefault()
-  const col: any = document.querySelector(`#${id}`)
-  const { topX, leftY, topXPlus, leftYPlus } = getTopAndLeft(col.style.top, col.style.left, col.clientHeight, col.clientWidth, unitLength.value)
-  if (logCube[topX] && logCube[topX][leftY]) {
-    logCube = resetFun(logCube, col, topX, leftY, topXPlus, leftYPlus, unitLength.value)
+  if (props.useDrag) {
+    e.preventDefault()
+    const col: any = document.querySelector(`#${id}`)
+    const { topX, leftY, topXPlus, leftYPlus } = getTopAndLeft(col.style.top, col.style.left, col.clientHeight, col.clientWidth, unitLength.value)
+    if (logCube[topX] && logCube[topX][leftY]) {
+      logCube = resetFun(logCube, col, topX, leftY, topXPlus, leftYPlus, unitLength.value)
+    }
+    dragDom.value = col
+    cardType.value = type
+    pointerStartX.value = e.x - Number(col.style.left.replace('px', ''))
+    pointerStartY.value = e.y - Number(col.style.top.replace('px', ''))
   }
-  dragDom.value = col
-  cardType.value = type
-  pointerStartX.value = e.x - Number(col.style.left.replace('px', ''))
-  pointerStartY.value = e.y - Number(col.style.top.replace('px', ''))
 }
 /** 鼠标放下，拖拽结束 */
 const drop = () => {
-  if (dragDom.value) {
+  if (dragDom.value && props.useDrag) {
     const col: any = dragDom.value
     const top = Number(col.style.top.replace('px', ''))
     const left = Number(col.style.left.replace('px', ''))
@@ -136,13 +153,13 @@ const drop = () => {
 
     const { topX, leftY, topXPlus, leftYPlus } = getTopAndLeft(col.style.top, col.style.left, col.clientHeight, col.clientWidth, unitLength.value)
     logCube = setFun(logCube, col, topX, leftY, topXPlus, leftYPlus, cardType.value, unitLength.value)
+    contentHeight.value = changeHeight(logCube, contentHeight.value, unitLength.value)
   }
-  //   console.log(logCube)
   uninit()
 }
 /** 拖拽过程中移动判断 */
 const allowDrop = (e: any) => {
-  if (dragDom.value) {
+  if (dragDom.value && props.useDrag) {
     if (beforePointer.value !== 0) {
       draggleDirection.value = e.x >= beforePointer.value ? 'right' : 'left'
     } else {
@@ -239,12 +256,13 @@ const allowDrop = (e: any) => {
         })
       }
     }
+    contentHeight.value = changeHeight(logCube, contentHeight.value, unitLength.value)
   }
 }
 /** 添加卡片 */
-const addCard = (type?: string) => {
+const addCard = (arg: any) => {
   const id = guid()
-  cardList.value.push({ id, type: type || 'default' })
+  cardList.value.push({ id, ...arg, type: arg.type || 'default' })
   setTimeout(() => {
     const col: any = document.querySelector(`#${id}`)
     let topX = 0
@@ -261,7 +279,8 @@ const addCard = (type?: string) => {
     col.style.display = 'block'
     col.style.top = `${topX * unitLength.value}px`
     col.style.left = `${leftY * unitLength.value}px`
-    logCube = setFun(logCube, col, topX, leftY, topXPlus, leftYPlus, type, unitLength.value)
+    logCube = setFun(logCube, col, topX, leftY, topXPlus, leftYPlus, arg.type || 'default', unitLength.value)
+    contentHeight.value = changeHeight(logCube, contentHeight.value, unitLength.value)
   })
 }
 /** 保存 */
@@ -276,19 +295,16 @@ defineExpose({
 </script>
 <style scoped>
 .bg-cube {
-  background-image: linear-gradient(0deg, #f3f1f0 10%, transparent 10%, transparent 91%, #f3f1f0 91%, #f3f1f0),
-    linear-gradient(90deg, #f3f1f0 10%, transparent 10%, transparent 91%, #f3f1f0 91%, #f3f1f0),
-    linear-gradient(0deg, transparent 10%, #b4b4b4 10%, #b4b4b4 11%, transparent 11%, transparent 90%, #b4b4b4 90%, #b4b4b4 91%, transparent 91%, transparent),
-    linear-gradient(90deg, transparent 10%, #b4b4b4 10%, #b4b4b4 11%, transparent 11%, transparent 90%, #b4b4b4 90%, #b4b4b4 91%, transparent 91%, transparent);
+  background: v-bind('background');
 }
-.root {
+/* .root {
   width: 100%;
   height: 100%;
   display: flex;
   flex-direction: column;
-}
-.root .content {
-  height: 100%;
+} */
+.draggle-root .content {
+  height: v-bind('contentHeight');
   width: 90%;
   position: relative;
   margin: 0 auto;
@@ -299,7 +315,7 @@ defineExpose({
   top: 0;
   left: 0;
   z-index: 10;
-  padding: 5px;
+  /* padding: 5px; */
   /* display: none; */
 }
 .contine {
